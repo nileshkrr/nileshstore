@@ -14,6 +14,9 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "DripStore API is running" });
 });
 
+app.get("/", (req, res) => {
+  res.send("🚀 DripStore API is running...");
+});
 // // Middleware
 app.use(
   cors({
