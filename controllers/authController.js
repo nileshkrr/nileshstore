@@ -180,15 +180,23 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const resetToken = crypto.randomBytes(20).toString("hex");
+    // 🔐 Generate token
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 min
+    // 🔐 Hash token before saving (IMPORTANT)
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
 
     await user.save();
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
+    // 📧 Email setup
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -197,24 +205,36 @@ const forgotPassword = async (req, res) => {
       },
     });
 
+    const message = `
+      <h2>Password Reset</h2>
+      <p>You requested a password reset.</p>
+      <p>This link will expire in 15 minutes.</p>
+      <a href="${resetUrl}">${resetUrl}</a>
+    `;
+
     await transporter.sendMail({
       to: user.email,
-      subject: "Password Reset",
-      html: `<p>You requested password reset</p>
-             <a href="${resetUrl}">Reset Password</a>`,
+      subject: "Password Reset Request",
+      html: message,
     });
 
-    res.json({ message: "Reset email sent" });
+    res.json({ message: "Reset email sent successfully" });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Email could not be sent" });
   }
 };
 // @desc Reset Password
 const resetPassword = async (req, res) => {
   try {
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(req.params.token)
+      .digest("hex");
+
     const user = await User.findOne({
-      resetPasswordToken: req.params.token,
+      resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
