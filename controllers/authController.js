@@ -242,4 +242,6 @@ module.exports = {
   updateProfile,
   changePassword,
   toggleWishlist,
+  forgotPassword,
+  resetPassword
 };
